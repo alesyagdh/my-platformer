@@ -2273,6 +2273,11 @@ MonoBehaviour:
   maxSpeed: 8
   acceleration: 70
   deceleration: 90
+  groundCheck: {fileID: 529480143}
+  groundCheckRadius: 0.15
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 8
 --- !u!1001 &1946470297
 PrefabInstance:
   m_ObjectHideFlags: 0
