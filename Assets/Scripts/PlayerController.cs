@@ -10,6 +10,9 @@ public class PlayerController : MonoBehaviour
 
     [Header("Стрибок")]
     [SerializeField, Range(0.5f, 10f)] private float jumpHeight = 3f;
+    [SerializeField, Range(0f, 0.5f)]  private float coyoteTime = 0.12f;
+    [SerializeField, Range(0f, 0.5f)]  private float jumpBufferTime = 0.12f;
+    [SerializeField, Range(0.1f, 1f)]  private float jumpCutMultiplier = 0.5f;
 
     [Header("Земля")]
     [SerializeField] private Transform groundCheck;
@@ -20,7 +23,8 @@ public class PlayerController : MonoBehaviour
     private PlayerControls controls;
     private float moveInput;
     private bool isGrounded;
-    private bool jumpPressed;
+    private float coyoteCounter;
+    private float jumpBufferCounter;
 
     private void Awake()
     {
@@ -52,9 +56,24 @@ public class PlayerController : MonoBehaviour
         // Введення читають у Update: FixedUpdate може пропустити короткий натиск
         moveInput = controls.Player.Move.ReadValue<Vector2>().x;
 
+        coyoteCounter = isGrounded ? coyoteTime : coyoteCounter - Time.deltaTime;
+
         if (controls.Player.Jump.WasPressedThisFrame())
         {
-            jumpPressed = true;
+            jumpBufferCounter = jumpBufferTime;
+        }
+        else
+        {
+            jumpBufferCounter -= Time.deltaTime;
+        }
+
+        // Змінна висота стрибка: якщо відпустити кнопку під час підйому, ріжемо швидкість угору
+        if (controls.Player.Jump.WasReleasedThisFrame() && body.linearVelocity.y > 0f)
+        {
+            body.linearVelocity = new Vector2(
+                body.linearVelocity.x,
+                body.linearVelocity.y * jumpCutMultiplier
+            );
         }
     }
 
@@ -69,16 +88,13 @@ public class PlayerController : MonoBehaviour
                                     rate * Time.fixedDeltaTime);
         float y = body.linearVelocity.y;
 
-        // Стрибаємо лише коли торкаємось землі, щоб не літати в повітрі
-        if (jumpPressed)
+        if (jumpBufferCounter > 0f && coyoteCounter > 0f)
         {
-            if (isGrounded)
-            {
-                float gravity = Mathf.Abs(Physics2D.gravity.y * body.gravityScale);
-                y = Mathf.Sqrt(2f * gravity * jumpHeight);
-            }
+            float gravity = Mathf.Abs(Physics2D.gravity.y * body.gravityScale);
+            y = Mathf.Sqrt(2f * gravity * jumpHeight);
 
-            jumpPressed = false;
+            jumpBufferCounter = 0f;
+            coyoteCounter = 0f;
         }
 
         body.linearVelocity = new Vector2(x, y);
