@@ -8,6 +8,9 @@ public class PlayerController : MonoBehaviour
     [SerializeField, Range(5f, 200f)] private float acceleration = 70f;
     [SerializeField, Range(5f, 200f)] private float deceleration = 90f;
 
+    [Header("Стрибок")]
+    [SerializeField, Range(0.5f, 10f)] private float jumpHeight = 3f;
+
     [Header("Земля")]
     [SerializeField] private Transform groundCheck;
     [SerializeField, Range(0.05f, 0.5f)] private float groundCheckRadius = 0.15f;
@@ -17,6 +20,7 @@ public class PlayerController : MonoBehaviour
     private PlayerControls controls;
     private float moveInput;
     private bool isGrounded;
+    private bool jumpPressed;
 
     private void Awake()
     {
@@ -47,6 +51,11 @@ public class PlayerController : MonoBehaviour
 
         // Введення читають у Update: FixedUpdate може пропустити короткий натиск
         moveInput = controls.Player.Move.ReadValue<Vector2>().x;
+
+        if (controls.Player.Jump.WasPressedThisFrame())
+        {
+            jumpPressed = true;
+        }
     }
 
     private void FixedUpdate()
@@ -58,6 +67,20 @@ public class PlayerController : MonoBehaviour
 
         float x = Mathf.MoveTowards(body.linearVelocity.x, target,
                                     rate * Time.fixedDeltaTime);
-        body.linearVelocity = new Vector2(x, body.linearVelocity.y);
+        float y = body.linearVelocity.y;
+
+        // Стрибаємо лише коли торкаємось землі, щоб не літати в повітрі
+        if (jumpPressed)
+        {
+            if (isGrounded)
+            {
+                float gravity = Mathf.Abs(Physics2D.gravity.y * body.gravityScale);
+                y = Mathf.Sqrt(2f * gravity * jumpHeight);
+            }
+
+            jumpPressed = false;
+        }
+
+        body.linearVelocity = new Vector2(x, y);
     }
 }
