@@ -31,6 +31,12 @@ public class PlayerController : MonoBehaviour
     [SerializeField, Range(1f, 20f)] private float hardLandingSpeed = 9f;
     [SerializeField] private CameraShake cameraShake;
 
+    [Header("Звук")]
+    [SerializeField] private AudioSource source;
+    [SerializeField] private AudioClip[] footsteps;   // щонайменше ТРИ кліпи
+    [SerializeField, Range(0f, 0.3f)] private float pitchVariance = 0.12f;
+    [SerializeField, Range(0.1f, 0.8f)] private float stepInterval = 0.32f;
+
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
 
     private Rigidbody2D body;
@@ -41,6 +47,7 @@ public class PlayerController : MonoBehaviour
     private float fallSpeed;
     private float coyoteCounter;
     private float jumpBufferCounter;
+    private float stepTimer;
 
     private float JumpVelocity =>
         Mathf.Sqrt(2f * Mathf.Abs(Physics2D.gravity.y) * baseGravity * jumpHeight);
@@ -96,7 +103,36 @@ public class PlayerController : MonoBehaviour
         // ТІЛЬКИ жорстке приземлення. Легкий зскок зі сходинки ефекту не дає
         if (speed < hardLandingSpeed) return;
 
-        cameraShake.Shake(0.12f, 0.12f);   // ← весь варіант А
+        if (cameraShake != null)
+            cameraShake.Shake(0.12f, 0.12f);   // ← весь варіант А
+    }
+
+    private void PlayFootstep()
+    {
+        if (footsteps == null || footsteps.Length == 0 || source == null) return;
+
+        // Два шари випадковості:
+        // 1) різні кліпи — прибирає впізнаваність конкретного звуку
+        AudioClip clip = footsteps[Random.Range(0, footsteps.Length)];
+
+        // 2) розкид висоти тону — прибирає механічність повторення
+        source.pitch = 1f + Random.Range(-pitchVariance, pitchVariance);
+        source.PlayOneShot(clip);
+    }
+
+    private void UpdateFootsteps()
+    {
+        bool running = isGrounded && Mathf.Abs(body.linearVelocity.x) > 0.5f;
+
+        // Не біжимо — скидаємо таймер, щоб перший крок після старту був одразу
+        if (!running) { stepTimer = 0f; return; }
+
+        stepTimer -= Time.deltaTime;
+        if (stepTimer <= 0f)
+        {
+            PlayFootstep();
+            stepTimer = stepInterval;
+        }
     }
 
     private void Update()
@@ -124,6 +160,7 @@ public class PlayerController : MonoBehaviour
         moveInput = controls.Player.Move.ReadValue<Vector2>().x;
         UpdateVisuals();
         CheckLanding();
+        UpdateFootsteps();
     }
 
     private void FixedUpdate()
