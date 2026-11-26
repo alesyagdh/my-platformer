@@ -27,12 +27,18 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private SpriteRenderer spriteRenderer;
 
+    [Header("Зворотний звʼязок")]
+    [SerializeField, Range(1f, 20f)] private float hardLandingSpeed = 9f;
+    [SerializeField] private CameraShake cameraShake;
+
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
 
     private Rigidbody2D body;
     private PlayerControls controls;
     private float moveInput;
     private bool isGrounded;
+    private bool wasGrounded;
+    private float fallSpeed;
     private float coyoteCounter;
     private float jumpBufferCounter;
 
@@ -43,6 +49,9 @@ public class PlayerController : MonoBehaviour
     {
         body = GetComponent<Rigidbody2D>();
         controls = new PlayerControls();
+
+        // Префаб не може зберігати посилання на обʼєкт сцени — шукаємо самі
+        if (cameraShake == null) cameraShake = FindAnyObjectByType<CameraShake>();
     }
 
     // Без Enable введення не приходить — і помилки при цьому не буде
@@ -69,6 +78,27 @@ public class PlayerController : MonoBehaviour
         body.linearVelocity = new Vector2(body.linearVelocity.x, JumpVelocity);
     }
 
+    private void CheckLanding()
+    {
+        // Поки летимо вниз — памʼятаємо, наскільки швидко
+        if (!isGrounded)
+            fallSpeed = Mathf.Max(fallSpeed, -body.linearVelocity.y);
+
+        if (isGrounded && !wasGrounded)   // ← саме ПЕРЕХІД, а не стан
+            OnLanded(fallSpeed);
+
+        if (isGrounded) fallSpeed = 0f;
+        wasGrounded = isGrounded;
+    }
+
+    private void OnLanded(float speed)
+    {
+        // ТІЛЬКИ жорстке приземлення. Легкий зскок зі сходинки ефекту не дає
+        if (speed < hardLandingSpeed) return;
+
+        cameraShake.Shake(0.12f, 0.12f);   // ← весь варіант А
+    }
+
     private void Update()
     {
         isGrounded = CheckGround();
@@ -93,6 +123,7 @@ public class PlayerController : MonoBehaviour
         // Введення читають у Update: FixedUpdate може пропустити короткий натиск
         moveInput = controls.Player.Move.ReadValue<Vector2>().x;
         UpdateVisuals();
+        CheckLanding();
     }
 
     private void FixedUpdate()
